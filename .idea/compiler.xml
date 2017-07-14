@@ -6,11 +6,11 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="Selenium_test" />
+        <module name="SlobodnaDalmacijaCrawler" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="Selenium_test" target="1.5" />
+      <module name="SlobodnaDalmacijaCrawler" target="1.5" />
     </bytecodeTargetLevel>
   </component>
 </project>
