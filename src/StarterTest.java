@@ -1,114 +1,259 @@
+import static java.lang.Thread.sleep;
 import static org.openqa.selenium.By.xpath;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.firefox.FirefoxDriver;
-import com.opencsv.*;
 
 public class StarterTest {
 
-    public static FirefoxDriver driver;
+  public static FirefoxDriver driver;
 
-    public static final String URL = "https://www.tvrtke.com/zagreb/web-usluge-dizajn-hosting-programiranje";
-    public static final String preStartClick= "//img[contains(@id, 'imgHeader')]";
-    public static final String extendSearch = "//div[contains(text(), 'Napredna tra')]";
-    public static final String selectCityExpand = "//select[contains(@title, 'Grad')]";
-    public static final String selectCityZagreb = "//select[contains(@title, 'Grad')]/option[contains(@value, '10000')]";
-    public static final String query = "//input[contains(@id, 'Djelatnost')]";
-    public static final String queryText = "Web usluge - dizajn, hosting, programiranje";
-    public static final String btn = "//input[contains(@id, 'btnSearchAdvanced')]";
-    public static final String loadMore = "//input[contains(@id, 'btnLoadMoreResults')]";
+  public static final String URLSlobodna = "http://www.slobodnadalmacija.hr/";
+  public static final String linksCSSSelectorSlobodna = ".story__link";
 
+  public static final String URLIndex = "http://www.index.hr/";
+  public static final String clanakIndexXpath = "//a[contains(@href, \"clanak\")]";
 
-    public static List<String> companyURLS = new ArrayList<String>();
-    public static final String querySelect = ".aNazivFirme";
-    public static String baseUrlForIteratingPages = "https://www.tvrtke.com/zagreb/web-usluge-dizajn-hosting-programiranje?stranica=";
-    public static String noMorePagesCSSSelector = ".divInline.divMain>div>div";
-    public static String endOfSearchNotification = "Trenutno nema tvrtki koje zadovoljavaju tražene kriterije. Molimo pregledajte naše ostale djelatnosti/mjesta/proizvode.";
-    public static String companyDetails = ".divCompanyInfoCenter , .divCompanyDescriptionNoLogo";
-    public static String urlsFile = "company_urls.txt";
+  public static final String urlsFileSlobodna = "urlsSlobodna.txt";
+  public static final String urlsFileIndex = "urlsIndex.txt";
 
-    public static void main(String[] args) throws InterruptedException, IOException {
-        //System.setProperty("webdriver.gecko.driver","geckodriver");
-        driver = new FirefoxDriver();
-        openBrowser(URL);
-
-        for (int i = 2; i < 5; i++) {
-            if(getNumberOfCompaniesOnPage() == 0){
-                break;
-            }
-            crawlCurrentPage();
-            driver.get(baseUrlForIteratingPages + 70);
-        }
-
-        //read all existing urls from file
-        readFromFile(urlsFile);
-
-        List<String> urlsInFile = readFromFile(urlsFile);
-        addOnlyNewURLSToFile(urlsInFile, companyURLS);
+  public static List<String> slobodnaLinksFromPage = new ArrayList<String>();
+  public static List<String> slobodnaLinksInFile = new ArrayList<String>();
+  public static List<String> indexLinksFromPage = new ArrayList<String>();
+  public static List<String> indexLinksInFile = new ArrayList<String>();
+  public static List<WebElement> iframes = new ArrayList<WebElement>();
 
 
-        crawlAllCompanyDetails();
-        //open all Company details
+  public static void main(String[] args) throws InterruptedException, IOException {
+    driver = new FirefoxDriver();
+    driver.manage().timeouts().implicitlyWait(60, TimeUnit.SECONDS);
+
+    logInToFacebook();
+    sleep(2000);
+
+    openBrowser(URLSlobodna);
+    slobodnaLinksFromPage = getAllURLsFromPageWithCSSSelector(linksCSSSelectorSlobodna);
+    slobodnaLinksInFile = readFromFile(urlsFileSlobodna);
+    addOnlyNewURLSToFile(urlsFileSlobodna, slobodnaLinksInFile, slobodnaLinksFromPage);
+    sleep(5000);
+
+    //iterate through links
+    iterateLinks(readFromFile(urlsFileSlobodna));
 
 
+    /*
+    openBrowser(URLIndex);
+    indexLinksFromPage = getAllURLsFromPageWithXPATHSelector(clanakIndexXpath);
+    indexLinksInFile = readFromFile(urlsFileSlobodna);
+    addOnlyNewURLSToFile(urlsFileIndex, indexLinksInFile, indexLinksFromPage);
+*/
 
 
+        /*
         //driver.quit();
 
-        /*
+
         JavascriptExecutor executor = (JavascriptExecutor)driver;
         executor.executeScript("arguments[0].click();", element);
-        */
+
         //click(querySelect); //invalid selector
-        /*
+
         click(btn);
         while(click(loadMore));
         driver.wait(5000);
         driver.quit();
         */
 
-    }
+  }
 
-    public static boolean openBrowser(String URL){
-        driver.get(URL);
-        return true;
-    }
+  public static void logInToFacebook() {
+    openBrowser("https://www.facebook.com/");
+    setText("//*[contains(@id, 'email')]", "mayanna.apt@gmail.com");
+    setText("//*[contains(@id, 'pass')]", "mandrilo");
+    click("//*[contains(@id, 'loginbutton')]");
+  }
 
-    public static boolean click(String path){
-        WebElement element = driver.findElement(xpath(path));
-        while(!element.isDisplayed() || !element.isEnabled());
-        driver.findElement(xpath(path)).click();
-        return true;
-    }
 
-    public static boolean setText(String path, String text){
-        WebElement element = driver.findElement(xpath(path));
-        while(!element.isDisplayed() || !element.isEnabled());
-        driver.findElement(xpath(path)).sendKeys(text);
-        return true;
+  public static List<String> getAllURLsFromPageWithCSSSelector(String elementSelector) {
+    List<WebElement> elements = driver.findElementsByCssSelector(elementSelector);
+    List<String> links = new ArrayList<String>();
+    for (WebElement element : elements) {
+      links.add(element.getAttribute("href"));
     }
+    return links;
+  }
 
-    public static int getNumberOfCompaniesOnPage(){
-        List<WebElement> elements = driver.findElementsByCssSelector(querySelect);
-        return elements.size();
+  public static List<String> getAllURLsFromPageWithXPATHSelector(String elementSelector) {
+    List<WebElement> elements = driver.findElementsByXPath(elementSelector);
+    List<String> links = new ArrayList<String>();
+    for (WebElement element : elements) {
+      links.add(element.getAttribute("href"));
     }
+    return links;
+  }
 
-    public static void crawlCurrentPage() throws InterruptedException {
-        List<WebElement> elements = driver.findElementsByCssSelector(querySelect);
+
+  public static List<String> readFromFile(String file) throws IOException {
+    createFileIfFileDoesNotExists(file);
+    List<String> URLSFromFile = new ArrayList<String>();
+    while (true) {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      String line;
+      while ((line = br.readLine()) != null) {
+        URLSFromFile.add(line);
+      }
+      return URLSFromFile;
+    }
+  }
+
+  public static void createFileIfFileDoesNotExists(String url) throws IOException {
+    File file = new File(url);
+    if (!file.exists()) {
+      file.createNewFile();
+    }
+  }
+
+  public static void addOnlyNewURLSToFile(String urlsFile, List<String> oldList,
+      List<String> newList)
+      throws FileNotFoundException {
+    for (String newURL : newList) {
+      int elementExists = 0;
+      for (String oldURL : oldList) {
+        if (newURL.compareTo(oldURL) == 0) {
+          elementExists = 1;
+        }
+      }
+      if (elementExists == 0) {
+        oldList.add(newURL);
+      }
+    }
+    writeURLSToFile(urlsFile, oldList);
+  }
+
+  public static void writeURLSToFile(String urlsFile, List<String> pageURLS)
+      throws FileNotFoundException {
+    PrintWriter pw = new PrintWriter(new FileOutputStream(urlsFile));
+    String output = "";
+    for (String element : pageURLS) {
+      output += element + "\n";
+    }
+    System.out.println(output);
+    pw.write(output);
+    pw.close();
+  }
+
+  public static void iterateLinks(List<String> urlLinks) throws InterruptedException {
+    for (int i = 0; i < 1; i++) {
+      openBrowser(urlLinks.get(i));
+      //click("//*[contains(text(),'Komentiraj')]/../../..");
+      WebElement facebookFrame = returnFacebookFrame();
+      updateFrameList();
+      printFrameListByClassName();
+      System.out.println(facebookFrame.getAttribute("class"));
+      driver.switchTo().frame(facebookFrame);
+      click("//div[contains(@class, '_1mf _1mj')]");
+      click("//*[contains(@class, '_1cb _5yk1')]");
+      setText("//*[contains(@class, '_1cb _5yk1')]",
+          "Zelite jeftino i udobno ljetovati u Splitu? \n Mayanna Apartment: https://hr.airbnb.com/rooms/19257413");
+
+      click("//button[contains(@type, 'submit')]");
+      driver.switchTo().frame(0);
+
+    }
+  }
+
+  //-----------------------------------------------------------------------------------------------------------------------------------------
+
+  public static String getCurrentFrame(){
+    JavascriptExecutor jsExecutor = (JavascriptExecutor)driver;
+    String currentFrame = (String) jsExecutor.executeScript("return self.name");
+    return currentFrame;
+  }
+
+
+  public static WebElement returnFacebookFrame() {
+    final List<WebElement> iframes = driver.findElements(By.tagName("iframe"));
+
+    int i = 0;
+    for (WebElement iframe : iframes) {
+      System.out.println(iframe.getAttribute("class"));
+      if(iframe.getAttribute("class").equals("fb_ltr")){
+        return iframe;
+      }
+      /*
+      if (iframe.getAttribute("id").equals("") || iframe.getAttribute("id")
+          .equals("fb_xdm_frame_http") || iframe.getAttribute("id").equals("fb_xdm_frame_https")
+          || iframe.getAttribute("id").equals("instagram-embed-0") || iframe.getAttribute("id")
+          .equals("instagram-embed-1") || iframe.getAttribute("id").equals("aswift_0") || iframe
+          .getAttribute("id").equals("aswift_1")) {
+        continue;
+      }
+      return iframe;
+      */
+    }
+    return null;
+  }
+
+  public static void updateFrameList(){
+    iframes = driver.findElements(By.tagName("iframe"));
+  }
+
+  public static void printFrameListByClassName(){
+    System.out.println("Iframes id list:");
+    for (WebElement iframe : iframes){
+      System.out.println(iframe.getAttribute("class"));
+    }
+  }
+
+
+  public static boolean openBrowser(String URL) {
+    driver.get(URL);
+    return true;
+  }
+
+  public static boolean click(String path) {
+    WebElement element = driver.findElement(xpath(path));
+    while (!element.isDisplayed() || !element.isEnabled()) {
+      ;
+    }
+    driver.findElement(xpath(path)).click();
+    return true;
+  }
+
+  public static boolean setText(String path, String text) {
+    WebElement element = driver.findElement(xpath(path));
+    while (!element.isDisplayed() || !element.isEnabled()) {
+    }
+    driver.findElement(xpath(path)).sendKeys(text);
+    return true;
+  }
+
+  public static int getNumberOfLinksOnPageCSSSelector(String CSSSelector) {
+    List<WebElement> elements = driver.findElementsByCssSelector(CSSSelector);
+    return elements.size();
+  }
+
+    /*
+    public static void crawlCurrentPage(String CSSSelector) throws InterruptedException {
+        List<WebElement> elements = driver.findElementsByCssSelector(CSSSelector);
         for (WebElement element : elements) {
             companyURLS.add(element.getAttribute("href"));
         }
         Thread.sleep(1000);
     }
+
 
     public static void writeToCSV() throws IOException {
         CSVWriter writer = new CSVWriter(new FileWriter("results.csv"), ';');
@@ -121,44 +266,6 @@ public class StarterTest {
         writer.close();
     }
 
-    public static void writeURLSToFile(List<String> companyURLS) throws FileNotFoundException {
-        PrintWriter pw = new PrintWriter(new FileOutputStream(urlsFile));
-        String output = "";
-        for(String element : companyURLS){
-            output+=element+"\n";
-        }
-        pw.write(output);
-        pw.close();
-    }
-
-    public static void addOnlyNewURLSToFile(List<String> oldList, List<String> newList)
-        throws FileNotFoundException {
-        for(String newURL : newList){
-            int elementExists = 0;
-            for(String oldURL : oldList){
-                if(newURL.compareTo(oldURL) == 0) {
-                    elementExists = 1;
-                }
-            }
-            if (elementExists == 0){
-                oldList.add(newURL);
-            }
-        }
-        writeURLSToFile(oldList);
-    }
-
-    public static List<String> readFromFile(String file) throws IOException {
-        List<String> URLSFromFile = new ArrayList<String>();
-        while (true) {
-            BufferedReader br = new BufferedReader(new FileReader(file));
-            String line;
-            while ((line = br.readLine()) != null) {
-                URLSFromFile.add(line);
-            }
-            return URLSFromFile;
-        }
-    }
-
     public static void crawlAllCompanyDetails() throws IOException {
         for (String companyURL : companyURLS) {
             driver.get(companyURL);
@@ -167,4 +274,8 @@ public class StarterTest {
         }
         writeToCSV();
     }
+
+    */
+
+
 }
